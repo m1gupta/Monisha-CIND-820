@@ -27,6 +27,6 @@ In Problem 1 I used association rule mining. Problem 2 compared Random Forest Cl
 #### Problem 1 Association Rule Mining
 For Association Rule mining I chose my important features based on support, lift and confidence values. I chose a lift of greater than 1, support of minimum 0.001 and confidence threshold over 0.8 over the oversampled data and 0.85 for the undersampled data. What I saw was that the features for the model with 3 levels had higher confidence values than model with 5 levels. But a lot of the features chosen for high hospitalization was similar for all versions; Bene_Race_Desc=Non-Hispanic White, Bene_Mdcd_Mdcr_Enrl_Stus=Medicare Only, and Bene_Mdcr_Entlmt_Stus=Aged were common features association with high hospitalizations. 
 #### Problem 2 Classification
-I used The ROC score to evaluate my models and compare them. Out of the 3 models Random Forest had the highest ROC score (0.8720097) and removing outliers increased over not removing them
+I used The ROC score to evaluate my models and compare them. Out of the 3 models Random Forest had the highest ROC score (0.87) and removing outliers increased over not removing them
 #### Problem 2 Regression
 I compared the models with the R2 and RMSE scores. The results were mixed, with Random Forest Performing Better with certain changes and Linear Regression performing better with certain changes. The model with the best result was Linear regression with 2020-2021 Train_test split and the outliers removed. It performed with an RMSE of 1.732463 and R2 of 0.4457301.
