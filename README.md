@@ -3,7 +3,13 @@
 This project looks at factors affecting COVID-19 hospitalizations of Medicare Beneficiaries in the US from 2020 to 2021, as well as determining a model for predicting hospitalizations and average length of stay at a hospital. The first research question is determining which features from the categorical variables are associated with higher hopsitalization rates using association rule mining. The second question looks at comparing different classification models in predicting higher vs lower hospitalizations(Random Forest, Logistic Regression and Naive Bayes), and the third question compares regression models(random forest and linear), which everything being done in R and only the EDA report coded in Python. Some of the commented code are techniques tried to compare the results to other techniques
 #### Link to Dataset: 
 https://data.cms.gov/covid-19/medicare-covid-19-hospitalization-trends
-
+#### Files for problem 1:
+CIND 820 Association rule mining_3 levels
+CIND 820 Association rule mining 5 levels
+#### Files for problem 2:
+CIND 820 Comparing Classification Models to Predict Hospitalization Numbers
+#### Files for Problem 3:
+CIND 820 Comparing Regression Models to Predict Average Length of Stay
 ## Stages of the of the Project
 ### Data Preprocessing
 The Data Preprocessing included dropping some columns, replacing NA's with the median grouped by the Year and Month, and converting the year datatype from integer to factor. For problem 1 concatenated the Year and Month column. I also removed outliers and compared those results to the results with outliers for Questions 2 and 3. For Questions 1 and 2 I converted the dependent variable to a categorical because the techniques involved a categorical dependent variable. For question 1 I made 2 files, one where I categorized the dependent variable into 3 levels and another where I categorized it into 5 levels.
