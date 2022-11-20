@@ -10,6 +10,8 @@ For feature selection, I used first eliminated the columns for events recorded a
 Since problem 1 used the assoication rule technique for gathering information, I did not use a split technique for that problem. For problems 2 and 3 I used the test train split technique. This is because it is easier to run and it is easier for me to divide the dataset into 2020 and 2021. I subsetted the 2020 rows into the train set and the 2021 rows into the test set. 
 ### Balancing Technique.
 I only balanced the 1st problem. Since I did not split it into train and test I simply made 2 different dataframes, one with the data over-sampled and one with the data undersampled to compare them. For problem 2 I did not need to balance it because I categorized it into 2 categories from the 50th percentile, so each category was already balanced. Problem 3 did not need balancing because the dependent variable is continuous. 
+### Format
+For Problem 1 to use association rule mining I first converted the data frame into transaction format
 ### Models
 In Problem 1 I used association rule mining. Problem 2 compared Random Forest Classifiers, Logistic Regression and Naive Bayes, And problem 3 Compared random forest regression and linear regression
 ### Evaluation
