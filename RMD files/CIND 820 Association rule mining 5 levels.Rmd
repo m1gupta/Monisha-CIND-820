@@ -1,0 +1,257 @@
+---
+title: "CIND 820 association rule mining with 5 levels"
+author: "Monisha"
+date: "2022-11-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+```{r}
+df_medicare_covid <- read.csv(file = "C:/Users/par20/Downloads/COVID_19_Hospitalization_Trends_Report_Data_file_20220526/COVID_19_Hospitalization_Trends_Report_Data_file_20220526.csv")
+```
+```{r}
+head(df_medicare_covid)
+```
+```{r}
+df_medicare_covid_subset <- df_medicare_covid[-c(11:19)]
+```
+```{r}
+head(df_medicare_covid_subset)
+```
+Combine year and month columns
+```{r}
+df_medicare_covid_subset$Year_Month <- paste(df_medicare_covid_subset$Year, df_medicare_covid_subset$Month, sep="_")
+```
+```{r}
+head(df_medicare_covid_subset)
+```
+
+
+
+```{r}
+summary(df_medicare_covid_subset)
+```
+
+
+
+
+
+Replacing missing values with median
+```{r}
+#install.packages("dplyr")
+library(dplyr)
+```
+```{r}
+df_medicare_covid_clean<-df_medicare_covid_subset %>%
+  group_by(Year_Month) %>%
+  mutate(Total_Bene_Hosp = ifelse(is.na(Total_Bene_Hosp), median(Total_Bene_Hosp, na.rm = T), Total_Bene_Hosp))
+```
+```{r}
+summary(df_medicare_covid_clean)
+
+```
+
+
+
+
+
+
+
+
+Categorizing dependent variable
+```{r}
+quantile(df_medicare_covid_clean$Total_Bene_Hosp, probs = c(0,0.1, 0.35, 0.65, 0.9,1))
+```
+
+
+
+```{r}
+df_medicare_covid_categorical <- data.frame(df_medicare_covid_clean)
+```
+
+
+```{r}
+df_medicare_covid_categorical$Total_Bene_Hosp <- cut(df_medicare_covid_clean$Total_Bene_Hosp, 
+                   breaks=c(-Inf, 21, 153, 512, 3935.4, 1098471), 
+                   labels=c("very low","low","middle","high", "very high"))
+```
+
+
+```{r}
+head(df_medicare_covid_categorical)
+```
+replace "National", "All", "Missing data", and "Overall" with NA
+
+```{r}
+df_medicare_covid_categorical["Bene_Geo_Desc"][df_medicare_covid_categorical["Bene_Geo_Desc"] == "National"] <- NA
+df_medicare_covid_categorical[df_medicare_covid_categorical=="All"] <- NA
+df_medicare_covid_categorical[df_medicare_covid_categorical=="2020_Overall"] <- NA
+df_medicare_covid_categorical[df_medicare_covid_categorical=="2021_Overall"] <- NA
+```
+
+Balancing
+Check if balanced
+```{r}
+table(df_medicare_covid_categorical$Total_Bene_Hosp)
+```
+
+
+
+Oversampling
+```{r}
+#install.packages("caret")
+library(caret)
+```
+
+
+```{r}
+df_over <- upSample(x = df_medicare_covid_categorical[,-9],
+                     y = df_medicare_covid_categorical$Total_Bene_Hosp)
+```
+```{r}
+table(df_over$Total_Bene_Hosp)
+```
+Undersampling
+
+```{r}
+df_under <- downSample(x = df_medicare_covid_categorical[, -9],
+                     y = df_medicare_covid_categorical$Total_Bene_Hosp)
+```
+```{r}
+table(df_under$Total_Bene_Hosp)
+```
+
+Drop Year and Month columns
+```{r}
+drops_1 <- c("Year","Month","Class")
+df_over<-df_over[ , !(names(df_over) %in% drops_1)]
+
+drops_1 <- c("Year","Month","Class")
+df_under<-df_under[ , !(names(df_under) %in% drops_1)]
+
+```
+
+
+
+```{r}
+head(df_over)
+head(df_under)
+```
+
+
+Transaction format
+Changing all columns to factor data type
+```{r}
+index <- 1:8
+df_over[ ,index] <- lapply(df_over[ ,index], as.factor)
+```
+
+
+```{r}
+df_under[ ,index] <- lapply(df_under[ ,index], as.factor)
+```
+```{r}
+str(df_over)
+str(df_under)
+```
+
+
+
+```{r}
+#install.packages("arules")
+library(arules)
+```
+
+```{r}
+df_over_trans <- as(df_over, "transactions")
+
+```
+```{r}
+df_under_trans <- as(df_under, "transactions")
+```
+
+Apriori Algorithm for Oversampled dataset
+```{r}
+itemLabels(df_over_trans)
+```
+
+```{r}
+rules_over_1 <- apriori(df_over_trans,
+                 parameter = list(supp = 0.001, conf = 0.8), appearance = list(rhs=c("Total_Bene_Hosp=very low")))
+
+rules_over_2 <- apriori(df_over_trans,
+                 parameter = list(supp = 0.001, conf = 0.8), appearance = list(rhs=c("Total_Bene_Hosp=low")))
+
+rules_over_3 <- apriori(df_over_trans,
+                 parameter = list(supp = 0.001, conf = 0.8), appearance = list(rhs=c("Total_Bene_Hosp=middle")))
+
+rules_over_4 <- apriori(df_over_trans,
+                 parameter = list(supp = 0.001, conf = 0.8), appearance = list(rhs=c("Total_Bene_Hosp=high")))
+
+rules_over_5 <- apriori(df_over_trans,
+                 parameter = list(supp = 0.001, conf = 0.8), appearance = list(rhs=c("Total_Bene_Hosp=very high")))
+```
+
+```{r}
+inspect(rules_over_1[1:10])
+```
+
+```{r}
+inspect(rules_over_2)
+```
+```{r}
+inspect(rules_over_3[1:10])
+```
+```{r}
+inspect(rules_over_4)
+```
+```{r}
+inspect(rules_over_5[1:10])
+```
+
+UnderSampling
+```{r}
+rules_under_1 <- apriori(df_under_trans,
+                 parameter = list(supp = 0.001, conf = 0.85), appearance = list(rhs=c("Total_Bene_Hosp=very low")))
+
+rules_under_2 <- apriori(df_under_trans,
+                 parameter = list(supp = 0.001, conf = 0.85), appearance = list(rhs=c("Total_Bene_Hosp=low")))
+
+rules_under_3 <- apriori(df_under_trans,
+                 parameter = list(supp = 0.001, conf = 0.85), appearance = list(rhs=c("Total_Bene_Hosp=middle")))
+
+rules_under_4 <- apriori(df_under_trans,
+                 parameter = list(supp = 0.001, conf = 0.85), appearance = list(rhs=c("Total_Bene_Hosp=high")))
+
+rules_under_5 <- apriori(df_under_trans,
+                 parameter = list(supp = 0.001, conf = 0.85), appearance = list(rhs=c("Total_Bene_Hosp=very high")))
+```
+```{r}
+inspect(rules_under_1[1:10])
+```
+```{r}
+inspect(rules_under_2)
+```
+```{r}
+inspect(rules_under_3)
+```
+```{r}
+```
+```{r}
+inspect(rules_under_4)
+```
+```{r}
+inspect(rules_under_5[1:10])
+```
+
+

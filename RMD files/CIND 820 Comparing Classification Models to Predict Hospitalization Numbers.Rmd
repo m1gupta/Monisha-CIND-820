@@ -1,0 +1,246 @@
+---
+title: "CIND820 Comparing Classification Models to Predict Hospitalization Numbers"
+author: "Monisha"
+date: "2022-11-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+df_medicare_covid <- read.csv(file = "C:/Users/par20/Downloads/COVID_19_Hospitalization_Trends_Report_Data_file_20220526/COVID_19_Hospitalization_Trends_Report_Data_file_20220526.csv")
+```
+```{r}
+head(df_medicare_covid)
+```
+```{r}
+summary(df_medicare_covid)
+```
+
+
+Convert year from int to char datatype
+```{r}
+df_medicare_covid$Year<- as.character(df_medicare_covid$Year)
+```
+
+
+```{r}
+colnames(df_medicare_covid)
+```
+
+Remove these variables that are dependent on after being hospitlalized
+```{r}
+df_medicare_subset <- df_medicare_covid[-c(12:19)]
+```
+Removing outliers using IQR
+from the Python EDA
+IQR is 1188 
+1.5*1188=1782
+Outliers are greater than 72-1782=1710
+and less than 1260 + 1782 = 3042
+
+```{r}
+df_no_outliers <- subset(df_medicare_subset, df_medicare_subset$Total_Bene_Hosp < 3042)
+```
+```{r}
+summary(df_no_outliers)
+```
+
+
+Replacing na with median
+```{r}
+#install.packages("dplyr")
+library(dplyr)
+```
+
+```{r}
+df_medicare_covid_clean<-df_no_outliers %>%
+  group_by(Year, Month) %>%
+  mutate(Total_Bene_Hosp = ifelse(is.na(Total_Bene_Hosp), median(Total_Bene_Hosp, na.rm = T), Total_Bene_Hosp))
+```
+```{r}
+df_medicare_covid_clean<-df_medicare_covid_clean %>%
+  group_by(Year, Month) %>%
+  mutate(Total_Mth_Enrl = ifelse(is.na(Total_Mth_Enrl), median(Total_Mth_Enrl, na.rm = T), Total_Mth_Enrl))
+```
+
+```{r}
+head(df_medicare_covid_clean)
+```
+
+```{r}
+summary(df_medicare_covid_clean)
+```
+
+
+Categorizing dependent variable
+```{r}
+quantile(df_medicare_covid_clean$Total_Bene_Hosp, probs = c(0.5,1))
+```
+```{r}
+df_medicare_covid_categorical <- data.frame(df_medicare_covid_clean)
+```
+
+```{r}
+df_medicare_covid_categorical$Total_Bene_Hosp <- cut(df_medicare_covid_clean$Total_Bene_Hosp, 
+                   breaks=c(-Inf, 209, 3041), 
+                   labels=c("high","low"))
+```
+```{r}
+head(df_medicare_covid_categorical)
+```
+```{r}
+table(df_medicare_covid_categorical$Total_Bene_Hosp)
+#The categories are balanced 
+```
+Backwards elimination for feature selection
+```{r}
+model_feature <- glm(Total_Bene_Hosp ~Year + Month + Bene_Geo_Desc + Bene_Mdcd_Mdcr_Enrl_Stus + Bene_Race_Desc + Bene_Sex_Desc + Bene_Mdcr_Entlmt_Stus+Bene_Age_Desc+Bene_RUCA_Desc + Total_Mth_Enrl, data =df_medicare_covid_categorical , family = "binomial")
+summary(model_feature)
+```
+
+```{r}
+library(MASS)
+```
+
+```{r}
+step.model <- stepAIC(model_feature, direction = "backward", 
+                      trace = FALSE)
+summary(step.model)
+#used backwards elimination to determine any insignifcant variables, because at major classes of all variables are mentioned all variables are significant
+```
+
+test train split
+```{r}
+Train <- subset(df_medicare_covid_categorical, Year == "2020")
+Test <- subset(df_medicare_covid_categorical, Year == "2021")
+
+```
+```{r}
+head(Train)
+head(Test)
+```
+
+Random Forest
+```{r}
+#install.packages('randomForest') 
+library(randomForest)
+```
+```{r}
+model_RF <- randomForest(Total_Bene_Hosp~.,data= Train, importance = TRUE)
+```
+Prediction
+```{r}
+pred_RF <- predict(model_RF, newdata = Test, type = 'response')
+```
+```{r}
+head(pred_RF)
+```
+```{r}
+model_RF
+```
+
+
+
+
+
+Naive Bayes
+```{r}
+#install.packages("naivebayes")
+library(naivebayes)
+#install.packages("ggplot2")
+library(ggplot2)
+#install.packages("psych")
+library(psych)
+```
+
+```{r}
+model_nb <- naive_bayes(Total_Bene_Hosp ~ ., data = Train[,-1])
+```
+```{r}
+pred_nb <- predict(model_nb, newdata = Test[,-1], type = 'prob')
+```
+```{r}
+head(pred_nb)
+```
+Logistic Regression
+```{r}
+model_LO <- glm(Total_Bene_Hosp~., data = Train[,-1], family = "binomial")
+```
+```{r}
+summary(model_LO)
+```
+```{r}
+pred_LO <- predict(model_LO, 
+                       Test, type = "response")
+head(pred_LO)
+```
+
+AUC ROC
+```{r}
+#install.packages("ROCR")
+library(ROCR)
+```
+
+```{r}
+```
+
+
+```{r}
+
+```
+Evaluation for Random Forest
+Random Forest has the highest auroc score so it is the best model
+Outliers Kept:0.8465857
+Outliers Removed: over 0.87
+```{r}
+pred_RF2 <- predict(model_RF, newdata = Test, type = 'prob')
+ROCPred_RF <- prediction(pred_RF2[,2], Test$Total_Bene_Hosp) 
+ROCPer_RF <- performance(ROCPred_RF, measure = "tpr", 
+                             x.measure = "fpr")
+auc_RF <- performance(ROCPred_RF, measure = "auc")
+auc_RF <- auc_RF@y.values[[1]]
+auc_RF
+plot(ROCPer_RF, main = "ROC Curve For Random Forest Classifier")
+```
+
+
+Logistic Regression Evaluation
+Outliers Kept: 0.7391947
+Outliers Removed:0.7835122
+
+```{r}
+ROCPred_LO <- prediction(pred_LO, Test$Total_Bene_Hosp) 
+ROCPer_LO <- performance(ROCPred_LO, measure = "tpr", 
+                             x.measure = "fpr")
+auc_LO <- performance(ROCPred_LO, measure = "auc")
+auc_LO <- auc_LO@y.values[[1]]
+auc_LO
+plot(ROCPer_LO, main = "ROC curve for Logistic Regression")
+```
+Naive Bayes Evaluation
+```{r}
+#install.packages("pROC")
+library(pROC)
+```
+Outliers kept:0.7319
+Outliers Removed:0.7844
+
+```{r}
+roc_nb <- roc(response = as.numeric(Test$Total_Bene_Hosp),
+ predictor = pred_nb[,2],
+ levels = c(1,2))
+```
+```{r}
+roc_nb$auc
+plot(roc_nb, main = "Roc Curve for Naive Bayes", legacy.axes = TRUE)
+```
+

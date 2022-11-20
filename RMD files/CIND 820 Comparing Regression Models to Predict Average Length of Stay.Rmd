@@ -1,0 +1,293 @@
+---
+title: "CIND820 Comparing Regression Models to Predict Average Length of Stay"
+author: "Monisha"
+date: "2022-11-20"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+df_medicare_covid_los <- read.csv(file = "C:/Users/par20/Downloads/COVID_19_Hospitalization_Trends_Report_Data_file_20220526/COVID_19_Hospitalization_Trends_Report_Data_file_20220526.csv")
+```
+```{r}
+head(df_medicare_covid_los)
+```
+```{r}
+summary(df_medicare_covid_los)
+```
+
+
+Convert year from int to char datatype
+```{r}
+df_medicare_covid_los$Year<- as.character(df_medicare_covid_los$Year)
+```
+
+
+```{r}
+colnames(df_medicare_covid_los)
+```
+
+Remove these variables that are dependent on after length of stay has occurred
+```{r}
+df_medicare_subset_los <- df_medicare_covid_los[-c(14:19)]
+```
+
+Removing outliers using IQR
+from the Python EDA
+IQR is 2.2942 
+1.5*2.2942=3.4413
+Outliers are greater than 9.437-3.4413=5.9957
+and less than 11.7312 + 3.4413 = 15.1725
+```{r}
+df_no_outliers_los <- subset(df_medicare_subset_los, df_medicare_subset_los$AVG_los > 5.9957 & df_medicare_subset_los$AVG_los < 15.1725)
+```
+```{r}
+summary(df_no_outliers_los)
+```
+
+
+Replacing na with median
+```{r}
+#install.packages("dplyr")
+library(dplyr)
+```
+
+```{r}
+df_medicare_covid_clean_los<-df_no_outliers_los %>%
+  group_by(Year, Month) %>%
+  mutate(Total_Bene_Hosp = ifelse(is.na(Total_Bene_Hosp), median(Total_Bene_Hosp, na.rm = T), Total_Bene_Hosp))
+```
+```{r}
+df_medicare_covid_clean_los<-df_medicare_covid_clean_los %>%
+  group_by(Year, Month) %>%
+  mutate(Total_Mth_Enrl = ifelse(is.na(Total_Mth_Enrl), median(Total_Mth_Enrl, na.rm = T), Total_Mth_Enrl))
+```
+```{r}
+df_medicare_covid_clean_los<-df_medicare_covid_clean_los %>%
+  group_by(Year, Month) %>%
+  mutate(Total_Bene_Enr_Hosp_Per100K = ifelse(is.na(Total_Bene_Enr_Hosp_Per100K), median(Total_Bene_Enr_Hosp_Per100K, na.rm = T), Total_Bene_Enr_Hosp_Per100K))
+```
+```{r}
+df_medicare_covid_clean_los<-df_medicare_covid_clean_los %>%
+  group_by(Year, Month) %>%
+  mutate(AVG_los = ifelse(is.na(AVG_los), median(AVG_los, na.rm = T), AVG_los))
+```
+
+```{r}
+head(df_medicare_covid_clean_los)
+```
+
+```{r}
+summary(df_medicare_covid_clean_los)
+```
+Backwards elimination for feature selection
+```{r}
+#install.packages("olsrr")
+library(olsrr)
+```
+
+```{r}
+model_feature_los <- lm(AVG_los ~., data =df_medicare_covid_clean_los)
+summary(model_feature_los)
+ols_step_backward_p(model_feature_los)
+```
+
+```{r}
+library(MASS)
+```
+
+```{r}
+step.model_los <- stepAIC(model_feature_los, direction = "backward", 
+                      trace = FALSE)
+summary(step.model_los)
+#used backwards elimination to determine any insignifcant variables. Total_Mth_Enrl is eliminated.
+```
+
+Removing Total_Mth_Enrl
+```{r}
+df_medicare_subset_los <- df_medicare_subset_los[-c(11)]
+```
+```{r}
+summary(df_medicare_subset_los)
+```
+
+Feature Engineering(to change r2)-does not change 
+```{r}
+#install.packages("tidyr")
+#library(tidyr)
+```
+```{r}
+#df_medicare_conc<- data.frame(df_medicare_covid_clean_los)
+```
+
+```{r}
+#df_medicare_conc<- df_medicare_conc %>%
+  #unite("year_month", Year:Month, remove = FALSE)
+#df_medicare_conc<- df_medicare_conc %>%
+  #unite("geo_mdcd_mdcr", Bene_Geo_Desc:Bene_Mdcd_Mdcr_Enrl_Stus)
+#df_medicare_conc<- df_medicare_conc %>%
+  #unite("race_sex", Bene_Race_Desc :Bene_Sex_Desc)
+```
+```{r}
+#summary(df_medicare_conc)
+```
+
+
+
+
+
+
+
+test train split
+```{r}
+#install.packages("forecast")
+#library(forecast)
+```
+```{r}
+#install.packages("stringr")
+#library(stringr)
+```
+
+```{r}
+
+Train_los <- subset(df_medicare_covid_clean_los, Year == "2020")
+#subset(df_medicare_conc, Year == "2020") combined columns
+#subset(df_medicare_covid_clean_los, Year == "2020")
+#head(df_medicare_covid_clean_los, round(nrow(df_medicare_covid_clean_los)*0.8)) for 80-20 split
+#h<- nrow(df_medicare_covid_clean_los) - nrow(Train_los) for 80-20 split
+Test_los <- subset(df_medicare_covid_clean_los, Year == "2021")
+#subset(df_medicare_conc, Year == "2021")combined columns
+#tail(df_medicare_covid_clean_los, h) for 80-20 split
+
+
+```
+for when i combined columns
+```{r}
+#Train_los <- Train_los[,-c(2:3)]
+#Test_los <- Test_los[,-c(2:3)]
+```
+
+```{r}
+head(Train_los)
+head(Test_los)
+
+```
+
+Random Forest
+```{r}
+#install.packages('randomForest') 
+library(randomForest)
+```
+```{r}
+model_RF_los <- randomForest(AVG_los~.,data= Train_los, importance = TRUE)
+
+```
+Prediction
+```{r}
+pred_RF_los <- predict(model_RF_los, newdata = Test_los, type = 'response')
+```
+```{r}
+head(pred_RF_los)
+```
+```{r}
+model_RF_los
+```
+Linear Regression
+```{r}
+#Train set
+model_LO_los <- lm(AVG_los~., data = Train_los[,-1])
+summary(model_LO_los)
+
+```
+```{r}
+#Test set
+model_LO_los_Test <- lm(AVG_los~., data = Test_los[,-1])
+summary(model_LO_los_Test)
+
+```
+
+```{r}
+pred_LO_los <- predict(model_LO_los, 
+                       Test_los, type = "response")
+```
+```{r}
+head(pred_LO_los)
+```
+Evaluation
+Overall Results are mixed.
+
+```{r}
+#install.packages("Metrics")
+library(Metrics)
+```
+
+
+```{r}
+print("Random Forest RMSE")
+rmse(Test_los$AVG_los, pred_RF_los)
+#Random forest has a lower RMSE making it a better fit but both are very high so in reality neither are a good fit
+
+print("Linear Regression RMSE")
+rmse(Test_los$AVG_los, pred_LO_los)
+```
+
+
+
+Random Forest Regression
+RMSE and R2
+80-20 split
+[1] 1.769621
+[1] 0.2907087
+50-50 split
+[1] 2.56574
+[1] 0.4013888
+Removing outliers and 2020-2021 split
+[1] 1.8
+[1] 0.359
+combining 2 columns and 2020-2021 split
+[1] 2.57176
+[1] 0.3998939
+```{r}
+actual <- Test_los$AVG_los
+predicted <- predict(model_RF_los, Test_los)
+sse_rf <- sum((predicted-actual)^2)
+ssr_rf <- sum((predicted-(mean(actual)))^2)
+sst_rf <- sse_rf + ssr_rf
+R2 <- ssr_rf/sst_rf
+caret::RMSE(predicted,actual)
+R2
+```
+Linear Regression
+RMSE and R2 for 80-20 split:
+[1] 1.757213
+[1] 0.2942754
+50-50 split
+[1] 2.602334
+[1] 0.3843729
+Remvoing Outliers and 2020-2021 split
+[1] 1.732463
+[1] 0.4457301
+combining columns and 2020-2021 split
+[1] 2.133673
+[1] 0.3969212
+```{r}
+actual_LO <- Test_los$AVG_los 
+predicted_LO <- predict(model_LO_los, Test_los)
+sse_LO <- sum((predicted_LO-actual_LO)^2)
+ssr_LO <- sum((predicted_LO-(mean(actual_LO)))^2)
+sst_LO <- sse_LO + ssr_LO
+R2_LO <- ssr_LO/sst_LO
+caret::RMSE(predicted_LO,actual_LO)
+R2_LO
+
+```
+
