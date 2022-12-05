@@ -4,8 +4,7 @@ This project looks at factors affecting COVID-19 hospitalizations of Medicare Be
 #### Link to Dataset: 
 https://data.cms.gov/covid-19/medicare-covid-19-hospitalization-trends
 #### Files for problem 1:
-CIND 820 Association rule mining_3 levels, 
-CIND 820 Association rule mining 5 levels
+CIND-820-Association-rule-mining_3-levels
 #### Files for problem 2:
 CIND 820 Comparing Classification Models to Predict Hospitalization Numbers
 #### Files for Problem 3:
