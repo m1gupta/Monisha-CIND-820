@@ -3,10 +3,12 @@
 This project looks at factors affecting COVID-19 hospitalizations of Medicare Beneficiaries in the US from 2020 to 2021, as well as determining a model for predicting hospitalizations and average length of stay at a hospital. The first research question is determining which features from the categorical variables are associated with higher hopsitalization rates using association rule mining. The second question looks at comparing different classification models in predicting high , middle, and low hospitalizations(Random Forest, Multinomial Logistic Regression) and the third question also compares the same classification models, but for the average length of stay in a hospital, which everything being done in R and only the EDA report coded in Python. Some of the commented code are techniques tried to compare the results to other techniques
 #### Link to Dataset: 
 https://data.cms.gov/covid-19/medicare-covid-19-hospitalization-trends
+
+##  Files Located in Folders titled "final results"
 #### Files for problem 1:
 CIND-820-Association-rule-mining_3-levels
 #### Files for problem 2:
-CIND 820 Comparing Classification Models to Predict Hospitalization Numbers
+CIND 820 Comparing Classification Models to Predict Hospitalization Numbers Final Results
 #### Files for Problem 3:
 CIND-820-AVG_los-Comparing-classification-models
 ## Stages of the of the Project
