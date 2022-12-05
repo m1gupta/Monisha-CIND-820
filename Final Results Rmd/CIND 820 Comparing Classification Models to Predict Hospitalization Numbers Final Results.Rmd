@@ -1,0 +1,241 @@
+---
+title: "CIND820 Comparing Classification Models to Predict Hospitalization Numbers Final Results"
+author: "Monisha"
+date: "2022-12-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+df_medicare_covid <- read.csv(file = "C:/Users/par20/Downloads/COVID_19_Hospitalization_Trends_Report_Data_file_20220526/COVID_19_Hospitalization_Trends_Report_Data_file_20220526.csv")
+```
+```{r}
+head(df_medicare_covid)
+```
+```{r}
+summary(df_medicare_covid)
+```
+
+
+Convert year from int to char datatype
+```{r}
+df_medicare_covid$Year<- as.character(df_medicare_covid$Year)
+```
+
+
+```{r}
+colnames(df_medicare_covid)
+```
+
+Remove these variables that are dependent on after being hospitlalized
+```{r}
+df_medicare_subset <- df_medicare_covid[-c(12:19)]
+```
+Removing outliers using IQR
+from the Python EDA
+IQR is 1188 
+1.5*1188=1782
+Outliers are greater than 72-1782=1710
+and less than 1260 + 1782 = 3042
+
+```{r}
+df_no_outliers <- subset(df_medicare_subset, df_medicare_subset$Total_Bene_Hosp < 3042)
+```
+```{r}
+summary(df_no_outliers)
+```
+
+
+Replacing na with median
+```{r}
+#install.packages("dplyr")
+library(dplyr)
+```
+
+```{r}
+df_medicare_covid_clean<-df_no_outliers %>%
+  group_by(Year, Month) %>%
+  mutate(Total_Bene_Hosp = ifelse(is.na(Total_Bene_Hosp), median(Total_Bene_Hosp, na.rm = T), Total_Bene_Hosp))
+```
+```{r}
+df_medicare_covid_clean<-df_medicare_covid_clean %>%
+  group_by(Year, Month) %>%
+  mutate(Total_Mth_Enrl = ifelse(is.na(Total_Mth_Enrl), median(Total_Mth_Enrl, na.rm = T), Total_Mth_Enrl))
+```
+
+```{r}
+head(df_medicare_covid_clean)
+```
+
+```{r}
+summary(df_medicare_covid_clean)
+```
+
+
+Categorizing dependent variable
+```{r}
+quantile(df_medicare_covid_clean$Total_Bene_Hosp, probs = c(0.35,0.65,1))
+```
+```{r}
+df_medicare_covid_categorical <- data.frame(df_medicare_covid_clean)
+```
+
+```{r}
+df_medicare_covid_categorical$Total_Bene_Hosp <- cut(df_medicare_covid_clean$Total_Bene_Hosp, 
+                   breaks=c(-Inf, 98, 418, 3041), 
+                   labels=c("low","middle","high"))
+```
+```{r}
+head(df_medicare_covid_categorical)
+```
+```{r}
+table(df_medicare_covid_categorical$Total_Bene_Hosp)
+#The categories are not balanced, so will balance the training set later. 
+```
+Backwards elimination for feature selection
+```{r}
+model_feature <- glm(Total_Bene_Hosp ~Year + Month + Bene_Geo_Desc + Bene_Mdcd_Mdcr_Enrl_Stus + Bene_Race_Desc + Bene_Sex_Desc + Bene_Mdcr_Entlmt_Stus+Bene_Age_Desc+Bene_RUCA_Desc + Total_Mth_Enrl, data =df_medicare_covid_categorical , family = "binomial")
+summary(model_feature)
+```
+
+```{r}
+library(MASS)
+```
+
+```{r}
+step.model <- stepAIC(model_feature, direction = "backward", 
+                      trace = FALSE)
+summary(step.model)
+#used backwards elimination to determine any insignifcant variables, because at major classes of all variables are mentioned all variables are significant
+```
+Changing all columns to factor type
+```{r}
+
+```
+
+
+test train split
+```{r}
+Train <- subset(df_medicare_covid_categorical, Year == "2020")
+Test <- subset(df_medicare_covid_categorical, Year == "2021")
+
+```
+```{r}
+table(Train$Total_Bene_Hosp) 
+#not balanced
+```
+Balancing only training set
+```{r}
+#install.packages("caret")
+library(caret)
+```
+
+```{r}
+Train_under <- downSample(x = Train[,c(1:9,11)],
+                     y = Train$Total_Bene_Hosp)
+```
+```{r}
+table(Train_under$Class)
+#Balanced 
+```
+
+```{r}
+head(Train)
+head(Test)
+```
+```{r}
+
+```
+
+Random Forest
+```{r}
+#install.packages('randomForest') 
+library(randomForest)
+```
+```{r}
+Sys.time()
+set.seed(100)
+model_RF <- randomForest(Class~., data= Train_under, importance = TRUE, ntree = 30)
+Sys.time()
+```
+Prediction
+```{r}
+Sys.time()
+pred_RF <- predict(model_RF, newdata = Test, type = 'response')
+pred_RF2 <- predict(model_RF, newdata = Test, type = 'prob')
+Sys.time()
+```
+```{r}
+head(pred_RF)
+```
+```{r}
+model_RF
+```
+```{r}
+confusionMatrix(data = pred_RF, reference = Test$Total_Bene_Hosp, mode = "everything")
+```
+Matthew's correlation coefficient
+```{r}
+#install.packages("mltools")
+library(mltools)
+```
+```{r}
+mcc(pred_RF, Test$Total_Bene_Hosp)
+```
+```{r}
+#install.packages("pROC")
+library(pROC)
+```
+
+```{r}
+multiclass.roc(Test$Total_Bene_Hosp, pred_RF2)
+```
+```{r}
+#plot()
+```
+Logistic Regression
+```{r}
+#install.packages("nnet")
+library(nnet)
+```
+
+```{r}
+Sys.time()
+model_LO <- multinom(Class~., data = Train_under[,-1])
+Sys.time()
+```
+```{r}
+summary(model_LO)
+```
+```{r}
+Sys.time()
+pred_LO <- predict(model_LO, Test, type = "class")
+pred_LO_2 <- predict(model_LO, Test, type = "prob")
+Sys.time()
+```
+```{r}
+head(pred_LO)
+```
+
+Confusion Matrix
+```{r}
+confusionMatrix(pred_LO, Test$Total_Bene_Hosp, mode = "everything")
+```
+
+```{r}
+mcc(pred_LO, Test$Total_Bene_Hosp)
+```
+
+```{r}
+multiclass.roc(response = Test$Total_Bene_Hosp, predictor = pred_LO_2)
+```
+

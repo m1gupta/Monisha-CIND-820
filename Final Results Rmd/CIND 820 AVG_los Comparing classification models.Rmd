@@ -1,0 +1,300 @@
+---
+title: "CIND820 Comparing Classification models to predict average length of stay "
+author: "Monisha"
+date: "2022-12-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+```{r}
+df_medicare_covid_los <- read.csv(file = "C:/Users/par20/Downloads/COVID_19_Hospitalization_Trends_Report_Data_file_20220526/COVID_19_Hospitalization_Trends_Report_Data_file_20220526.csv")
+```
+```{r}
+head(df_medicare_covid_los)
+```
+```{r}
+summary(df_medicare_covid_los)
+```
+
+
+Convert year from int to char datatype
+```{r}
+df_medicare_covid_los$Year<- as.character(df_medicare_covid_los$Year)
+```
+
+
+```{r}
+colnames(df_medicare_covid_los)
+```
+
+Remove these variables that are dependent on after length of stay has occurred
+```{r}
+df_medicare_subset_los <- df_medicare_covid_los[-c(14:19)]
+```
+Checking linear regression assumptions
+Linearity
+```{r}
+model_req <-lm(log(AVG_los) ~., data =df_medicare_subset_los )
+```
+```{r}
+plot(model_req, 1)
+#Straight line indicates linear relationship between indepedent variables and dependent variables
+```
+Homoscedasticity
+```{r}
+#install.packages("car")
+library(car)
+```
+```{r}
+ncvTest(model_req)
+#since p is less than 0.05 this requirement is not met
+```
+```{r}
+plot(model_req, 3)
+```
+Removing outliers using IQR
+from the Python EDA
+IQR is 2.2942 
+1.5*2.2942=3.4413
+Outliers are greater than 9.437-3.4413=5.9957
+and less than 11.7312 + 3.4413 = 15.1725
+```{r}
+df_no_outliers_los <- subset(df_medicare_subset_los, df_medicare_subset_los$AVG_los > 5.9957 & df_medicare_subset_los$AVG_los < 15.1725)
+```
+```{r}
+summary(df_no_outliers_los)
+```
+Replacing na with median
+```{r}
+#install.packages("dplyr")
+library(dplyr)
+```
+
+```{r}
+df_medicare_covid_clean_los<-df_no_outliers_los %>%
+  group_by(Year, Month) %>%
+  mutate(Total_Bene_Hosp = ifelse(is.na(Total_Bene_Hosp), median(Total_Bene_Hosp, na.rm = T), Total_Bene_Hosp))
+```
+```{r}
+df_medicare_covid_clean_los<-df_medicare_covid_clean_los %>%
+  group_by(Year, Month) %>%
+  mutate(Total_Mth_Enrl = ifelse(is.na(Total_Mth_Enrl), median(Total_Mth_Enrl, na.rm = T), Total_Mth_Enrl))
+```
+```{r}
+df_medicare_covid_clean_los<-df_medicare_covid_clean_los %>%
+  group_by(Year, Month) %>%
+  mutate(Total_Bene_Enr_Hosp_Per100K = ifelse(is.na(Total_Bene_Enr_Hosp_Per100K), median(Total_Bene_Enr_Hosp_Per100K, na.rm = T), Total_Bene_Enr_Hosp_Per100K))
+```
+```{r}
+df_medicare_covid_clean_los<-df_medicare_covid_clean_los %>%
+  group_by(Year, Month) %>%
+  mutate(AVG_los = ifelse(is.na(AVG_los), median(AVG_los, na.rm = T), AVG_los))
+```
+
+```{r}
+head(df_medicare_covid_clean_los)
+```
+
+```{r}
+summary(df_medicare_covid_clean_los)
+```
+
+
+Categorizing dependent variable
+```{r}
+quantile(df_medicare_covid_clean_los$AVG_los, probs = c(0.35, 0.65 ,1))
+```
+```{r}
+df_medicare_covid_categorical_los <- data.frame(df_medicare_covid_clean_los)
+```
+
+```{r}
+df_medicare_covid_categorical_los$AVG_los <- cut(df_medicare_covid_clean_los$AVG_los, 
+                   breaks=c(-Inf,  9.79030, 10.94773, 15.16670), 
+                   labels=c("low","middle","high"))
+```
+```{r}
+head(df_medicare_covid_categorical_los)
+```
+```{r}
+table(df_medicare_covid_categorical_los$AVG_los)
+#The categories are not balanced will balance after splitting 
+```
+
+Backwards elimination for feature selection
+```{r}
+model_feature_los <- glm(AVG_los ~., data =df_medicare_covid_categorical_los , family = "binomial")
+summary(model_feature_los)
+```
+
+```{r}
+library(MASS)
+```
+
+```{r}
+step.model_los <- stepAIC(model_feature_los, direction = "backward", 
+                      trace = FALSE)
+summary(step.model_los)
+#used backwards elimination to determine any insignifcant variables, because at major classes of all variables are mentioned all variables are significant
+```
+Remove Eliminated features
+```{r}
+df_medicare_covid_categorical_los <- df_medicare_covid_categorical_los[,-12]
+```
+
+test train split
+```{r}
+Train_los <- subset(df_medicare_covid_categorical_los, Year == "2020")
+Test_los <- subset(df_medicare_covid_categorical_los, Year == "2021")
+
+```
+```{r}
+head(Train_los)
+head(Test_los)
+```
+Balancing Train subset
+```{r}
+table(Train_los$AVG_los)
+```
+```{r}
+#install.packages("caret")
+library(caret)
+```
+
+```{r}
+Train_los_balanced <- downSample(x = Train_los[,c(1:10)],
+                     y = Train_los$AVG_los)
+```
+
+
+Random Forest
+```{r}
+#install.packages('randomForest') 
+library(randomForest)
+```
+```{r}
+Sys.time()
+set.seed(100)
+model_RF_los <- randomForest(Class~.,data= Train_los_balanced, importance = TRUE, ntree = 15)
+Sys.time()
+```
+Prediction
+```{r}
+Sys.time()
+pred_RF_los <- predict(model_RF_los, newdata = Test_los, type = 'response')
+pred_RF2_los <- predict(model_RF_los, newdata = Test_los, type = 'prob')
+Sys.time()
+```
+```{r}
+head(pred_RF_los)
+```
+```{r}
+Sys.time()
+model_RF_los
+Sys.time()
+```
+Random Forest Evaluation
+```{r}
+rf_los_matrix <- confusionMatrix(data = pred_RF_los, reference = Test_los$AVG_los, mode = "everything")
+rf_los_matrix
+```
+```{r}
+#install.packages("mltools")
+library(mltools)
+```
+
+```{r}
+mcc(pred_RF_los, Test_los$AVG_los)
+```
+```{r}
+#install.packages("pROC")
+library(pROC)
+```
+
+```{r}
+multiclass.roc(response = Test_los$AVG_los, predictor = pred_RF2_los)
+```
+
+
+
+
+Logistic Regression
+```{r}
+#install.packages("nnet")
+library(nnet)
+```
+
+```{r}
+Sys.time()
+model_LO_los <- multinom(Class~., data = Train_los_balanced[,-1])
+Sys.time()
+```
+```{r}
+summary(model_LO_los)
+```
+```{r}
+Sys.time()
+pred_LO_los <- predict(model_LO_los, 
+                       Test_los, type = "class")
+pred_LO2_los <- predict(model_LO_los, 
+                       Test_los, type = "prob")
+Sys.time()
+head(pred_LO_los)
+```
+Evaluation for logistic regression
+```{r}
+confusionMatrix(pred_LO_los, Test_los$AVG_los, mode = "everything")
+```
+```{r}
+mcc(pred_LO_los, Test_los$AVG_los)
+```
+```{r}
+multiclass.roc(response = Test_los$AVG_los, predictor = pred_LO2_los)
+```
+Repeated Cross Validation to verify results
+Random Forest took too much time
+```{r}
+#set.seed(10)
+#train_control_los <- trainControl(method = "repeatedcv",
+                              #number = 5)
+#model_repeatedcv_RF <- train(Class~., data = Train_los_balanced[,-1],
+               #trControl = train_control_los, method = "rf")
+#print(model_repeatedcv_RF)
+```
+```{r}
+set.seed(320)
+train_control_los <- trainControl(method = "repeatedcv",
+                              number = 10, repeats = 3)
+model_repeatedcv_LO <- train(Class~., data = Train_los_balanced[,-1],
+               trControl = train_control_los, method = "multinom")
+print(model_repeatedcv_LO)
+```
+```{r}
+pred_LO_los_rcv <- predict(model_repeatedcv_LO, 
+                       Test_los, type = "raw")
+pred_LO2_los_rcv <- predict(model_repeatedcv_LO, 
+                       Test_los, type = "prob")
+```
+```{r}
+head(pred_LO_los_rcv)
+```
+
+Confusion Matrix
+```{r}
+confusionMatrix(pred_LO_los_rcv, Test_los$AVG_los, mode = "everything")
+```
+```{r}
+mcc(pred_LO_los_rcv, Test_los$AVG_los)
+```
+```{r}
+multiclass.roc(response = Test_los$AVG_los, predictor = pred_LO2_los_rcv)
+```
+
+
