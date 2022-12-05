@@ -9,7 +9,7 @@ CIND 820 Association rule mining 5 levels
 #### Files for problem 2:
 CIND 820 Comparing Classification Models to Predict Hospitalization Numbers
 #### Files for Problem 3:
-CIND 820 Comparing Regression Models to Predict Average Length of Stay
+CIND-820-AVG_los-Comparing-classification-models
 ## Stages of the of the Project
 ### Data Preprocessing
 The Data Preprocessing included dropping some columns, replacing NA's with the median grouped by the Year and Month, and converting the year datatype from integer to factor. For problem 1 concatenated the Year and Month column. I also removed outliers and compared those results to the results with outliers for Questions 2 and 3. For Questions 1 and 2 and 3 I converted the dependent variables to categorical because the techniques involved a categorical dependent variable and categorized all in 3 levels. 
